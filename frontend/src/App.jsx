@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import MapView from "./components/MapView";
 import FloatingPanel from "./components/FloatingPanel";
 import FloatingButton from "./components/FloatingButton";
@@ -209,7 +209,10 @@ function App() {
   const [panelVisible, setPanelVisible] = useState(true);
   const [panelMinimized, setPanelMinimized] = useState(false);
   const [mitigationReductionPct, setMitigationReductionPct] = useState(0);
-  const [stormIntensity, setStormIntensity] = useState(180);
+  const [stormIntensity, setStormIntensity] = useState(() => {
+    const saved = Number(localStorage.getItem("stormIntensity"));
+    return saved > 0 ? saved : 180;
+  });
   const [isBenchmarkOpen, setIsBenchmarkOpen] = useState(false);
   const [isEmergencyHotlineOpen, setIsEmergencyHotlineOpen] = useState(false);
 
@@ -263,10 +266,6 @@ function App() {
         setEarthEngineStatus(
           data.services.earth_engine ? "connected" : "needs_auth",
         );
-
-        if (!simulationData && currentPlan) {
-          triggerAutoSimulation();
-        }
       } else {
         setBackendStatus("error");
       }
@@ -288,12 +287,21 @@ function App() {
       if (response.ok) {
         const data = await response.json();
         setSimulationData(data);
+        localStorage.setItem("simulationData", JSON.stringify(data));
         setShowOverlay(true);
       }
     } catch (e) {
       // Auto-run is best-effort; the manual "Run NASA Analysis" path remains available.
     }
   };
+
+  // ponytail: effect-driven (fresh deps) instead of inside the health-check
+  // interval, whose closure was frozen at mount and re-ran the sim every 30s.
+  useEffect(() => {
+    if (currentPlan && !simulationData && backendStatus === "connected") {
+      triggerAutoSimulation();
+    }
+  }, [currentPlan, simulationData, backendStatus]);
 
   const handleRunSimulation = async () => {
     setLoading(true);
@@ -417,6 +425,7 @@ function App() {
 
             localStorage.setItem("currentPlan", JSON.stringify(geojson));
             localStorage.setItem("uploadedFileName", file.name);
+            localStorage.removeItem("simulationData");
 
             setToast({
               message: `Successfully loaded: ${file.name}\n\nMap centered on new location. Click "Run NASA Analysis" to process.`,
@@ -446,6 +455,7 @@ function App() {
 
     localStorage.setItem("currentPlan", JSON.stringify(geojson));
     localStorage.setItem("uploadedFileName", cityFileName);
+    localStorage.removeItem("simulationData");
 
     setToast({
       message: `Switched to: ${cityFileName.replace(".geojson", "").replace("_area", "").toUpperCase()}\n\nClick "Run NASA Analysis" to simulate climate risk for this city!`,
@@ -453,8 +463,15 @@ function App() {
     });
   }, []);
 
-  // Synchronize storm intensity with scenario changes or initial analysis
+  // Synchronize storm intensity with scenario changes or initial analysis.
+  // ponytail: first run is the state restore itself — skip it so a persisted
+  // synced value isn't immediately clobbered by mean_rain_mm on reload.
+  const stormSyncInitRef = useRef(false);
   useEffect(() => {
+    if (!stormSyncInitRef.current) {
+      stormSyncInitRef.current = true;
+      return;
+    }
     if (
       simulationData &&
       simulationData.metrics &&
@@ -463,6 +480,10 @@ function App() {
       setStormIntensity(Math.round(simulationData.metrics.mean_rain_mm));
     }
   }, [simulationData, scenario]);
+
+  useEffect(() => {
+    localStorage.setItem("stormIntensity", String(stormIntensity));
+  }, [stormIntensity]);
 
   // Compute live SCS-CN hydrological metrics dynamically as slider moves (Memoized)
   const activeSimulationData = useMemo(() => {

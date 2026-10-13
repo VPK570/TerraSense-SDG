@@ -34,7 +34,13 @@ const FloatingPanel = ({
 }) => {
   const [activeTab, setActiveTab] = useState('simulation');
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
-  const [liveWeather, setLiveWeather] = useState(null);
+  const [liveWeather, setLiveWeather] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("liveWeather")) || null;
+    } catch (e) {
+      return null;
+    }
+  });
   const [loadingWeather, setLoadingWeather] = useState(false);
 
   if (!isVisible) return null;
@@ -74,6 +80,7 @@ const FloatingPanel = ({
     }
     const weather = await fetchLiveWeatherData(lat, lon);
     setLiveWeather(weather);
+    localStorage.setItem("liveWeather", JSON.stringify(weather));
     setLoadingWeather(false);
   };
 
