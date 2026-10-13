@@ -1,0 +1,54 @@
+# Credentials & Secret Keys
+service-account-key.json
+*.key
+*.pem
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+venv/
+.venv/
+env/
+
+# Node.js
+node_modules/
+dist/
+.vite/
+npm-debug.log*
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log
+
+# Markdown & Internal Pitch / Strategy Guides (Keep only the root README public)
+*.md
+**/*.md
+backend/docs/
+!/README.md
+
+# Local-dev-only tooling (not needed to run or deploy the app)
+pyrightconfig.json
+start.sh
+start.bat
+/test_system.py
+backend/tunnel.js
+backend/package.json
+backend/package-lock.json
+notebooks/
+
+# Unused duplicate data (city data is embedded in the frontend components)
+/data/
+backend/data/
+frontend/public/data/
